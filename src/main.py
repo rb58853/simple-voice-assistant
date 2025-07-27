@@ -1,9 +1,8 @@
 from dotenv import load_dotenv
-from core.api import create_app
+from api.api import create_app
 from fastrtc import Stream
 from fastapi import FastAPI
-from core.stream import create_stream
-from core.session_flow.openai_handler import OpenAIHandler as OpenAIHandlerSession
+from app.flows.session_flow.stream import stream as session_stream
 
 load_dotenv()
 
@@ -26,9 +25,9 @@ import click
 def main(flow: str, mode: str):
     stream: Stream | None = None
     if flow == "simple":
-        stream = create_stream(OpenAIHandlerSession())
+        stream = session_stream
     if flow == "session":
-        stream = create_stream(OpenAIHandlerSession())
+        stream = session_stream
 
     app: FastAPI = create_app(stream=stream)
     if mode == "ui":

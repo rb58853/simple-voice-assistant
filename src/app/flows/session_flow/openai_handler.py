@@ -7,7 +7,13 @@ from fastrtc import (
     AsyncStreamHandler,
     wait_for_item,
 )
+
 SAMPLE_RATE = 24000
+
+"""
+Esta imlplementacion compromete el evento `response.audio.delta`. Ergo, la api estara gastando en la salida de este. La cuestion es que, actualemnte, openai no permite controlar el flujo interno del LLM en una sesion. Por lo tanto, se hace necesario usar malas practicas usando un control alternativo
+"""
+
 
 class OpenAIHandler(AsyncStreamHandler):
     def __init__(
@@ -39,6 +45,7 @@ class OpenAIHandler(AsyncStreamHandler):
                         "model": "whisper-1",
                         "language": "es",
                     },
+                    
                 }
             )
             self.connection = conn

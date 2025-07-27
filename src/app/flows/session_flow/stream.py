@@ -2,6 +2,7 @@ import gradio as gr
 from fastrtc import Stream, get_twilio_turn_credentials
 from gradio.utils import get_space
 from fastrtc.tracks import HandlerType
+from .openai_handler import OpenAIHandler
 
 SAMPLE_RATE = 24000
 
@@ -30,5 +31,4 @@ def create_stream(handler: HandlerType) -> Stream:
     return stream
 
 
-if __name__ == "__main__":
-    create_stream()
+stream: Stream = create_stream(OpenAIHandler())
