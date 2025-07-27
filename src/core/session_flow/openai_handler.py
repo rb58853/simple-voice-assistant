@@ -1,20 +1,13 @@
 import asyncio
 import base64
-import gradio as gr
 import numpy as np
 import openai
 from fastrtc import (
     AdditionalOutputs,
     AsyncStreamHandler,
-    Stream,
-    get_twilio_turn_credentials,
     wait_for_item,
 )
-from gradio.utils import get_space
-from .chat_box import ChatBox, NoneChatBox
-
 SAMPLE_RATE = 24000
-
 
 class OpenAIHandler(AsyncStreamHandler):
     def __init__(
@@ -50,23 +43,22 @@ class OpenAIHandler(AsyncStreamHandler):
             )
             self.connection = conn
             async for event in self.connection:
-                await chat_box.event_functions(event=event, handler=self)
-                #     # Handle interruptions
-                #     if event.type == "input_audio_buffer.speech_started":
-                #         self.clear_queue()
-                #     if (
-                #         event.type
-                #         == "conversation.item.input_audio_transcription.completed"
-                #     ):
-                #         await self.output_queue.put(
-                #             AdditionalOutputs({"role": "user", "content": event.transcript})
-                #         )
-                #     if event.type == "response.audio_transcript.done":
-                #         await self.output_queue.put(
-                #             AdditionalOutputs(
-                #                 {"role": "assistant", "content": event.transcript}
-                #             )
-                #         )
+                # Handle interruptions
+                if event.type == "input_audio_buffer.speech_started":
+                    self.clear_queue()
+                if (
+                    event.type
+                    == "conversation.item.input_audio_transcription.completed"
+                ):
+                    await self.output_queue.put(
+                        AdditionalOutputs({"role": "user", "content": event.transcript})
+                    )
+                if event.type == "response.audio_transcript.done":
+                    await self.output_queue.put(
+                        AdditionalOutputs(
+                            {"role": "assistant", "content": event.transcript}
+                        )
+                    )
                 if event.type == "response.audio.delta":
                     await self.output_queue.put(
                         (
@@ -92,19 +84,3 @@ class OpenAIHandler(AsyncStreamHandler):
         if self.connection:
             await self.connection.close()
             self.connection = None
-
-
-chat_box: ChatBox = ChatBox()
-
-latest_message = gr.Textbox(type="text", visible=False)
-stream = Stream(
-    OpenAIHandler(),
-    mode="send-receive",
-    modality="audio",
-    additional_inputs=chat_box.additional_inputs,
-    additional_outputs=chat_box.additional_outputs,
-    additional_outputs_handler=chat_box.additional_outputs,
-    rtc_configuration=get_twilio_turn_credentials() if get_space() else None,
-    concurrency_limit=5 if get_space() else None,
-    time_limit=90 if get_space() else None,
-)

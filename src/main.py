@@ -2,8 +2,8 @@ from dotenv import load_dotenv
 from core.api import create_app
 from fastrtc import Stream
 from fastapi import FastAPI
-from core.simple_whisper.voice_chat import create_stream as basic_stream
-from core.agent_flow.stream import AgentStream
+from core.stream import create_stream
+from core.session_flow.openai_handler import OpenAIHandler as OpenAIHandlerSession
 
 load_dotenv()
 
@@ -13,8 +13,8 @@ import click
 @click.command()
 @click.option(
     "--flow",
-    default="basic",
-    type=click.Choice(["basic", "custom"], case_sensitive=False),
+    default="simple",
+    type=click.Choice(["simple", "session"], case_sensitive=False),
     help="",
 )
 @click.option(
@@ -25,10 +25,10 @@ import click
 )
 def main(flow: str, mode: str):
     stream: Stream | None = None
-    if flow == "basic":
-        stream = basic_stream()
-    if flow == "custom":
-        stream = AgentStream().stream
+    if flow == "simple":
+        stream = create_stream(OpenAIHandlerSession())
+    if flow == "session":
+        stream = create_stream(OpenAIHandlerSession())
 
     app: FastAPI = create_app(stream=stream)
     if mode == "ui":

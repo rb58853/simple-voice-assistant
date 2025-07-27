@@ -5,27 +5,27 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Basic UI",
+            "name": "Simple UI",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
             "args": [
                 "--flow",
-                "basic",
+                "simple",
                 "--mode",
                 "ui"
             ]
         },
         {
-            "name": "Custom UI",
+            "name": "Session UI",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
             "args": [
                 "--flow",
-                "custom",
+                "session",
                 "--mode",
                 "ui"
             ]
