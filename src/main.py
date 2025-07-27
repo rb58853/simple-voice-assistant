@@ -1,17 +1,47 @@
 from dotenv import load_dotenv
+from core.api import create_app
+from fastrtc import Stream
+from fastapi import FastAPI
+from core.simple_whisper.voice_chat import create_stream as basic_stream
+from core.agent_flow.stream import AgentStream
 
 load_dotenv()
-from .core.api import app, stream
+
+import click
 
 
-if __name__ == "__main__":
-    import os
+@click.command()
+@click.option(
+    "--flow",
+    default="basic",
+    type=click.Choice(["basic", "custom"], case_sensitive=False),
+    help="",
+)
+@click.option(
+    "--mode",
+    default="ui",
+    type=click.Choice(["server", "ui", "phone"], case_sensitive=False),
+    help="Service to run: 'server' for FastAPI, 'ui' for Gradio UI, 'phone' for phone mode.",
+)
+def main(flow: str, mode: str):
+    stream: Stream | None = None
+    if flow == "basic":
+        stream = basic_stream()
+    if flow == "custom":
+        stream = AgentStream().stream
 
-    if (mode := os.getenv("MODE")) == "UI":
+    app: FastAPI = create_app(stream=stream)
+    if mode == "ui":
         stream.ui.launch(server_port=7860)
-    elif mode == "PHONE":
+    elif mode == "phone":
         stream.fastphone(host="0.0.0.0", port=7860)
-    else:
+    elif mode == "server":
         import uvicorn
 
         uvicorn.run(app, host="0.0.0.0", port=7860)
+
+    raise Exception("Not implemented mode")
+
+
+if __name__ == "__main__":
+    main()  # type: ignore
