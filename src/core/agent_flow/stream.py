@@ -6,6 +6,9 @@ import numpy as np
 from .stt.openai_stt import OpenAISTT, ProviderSTT
 from .agent import Agent
 
+agent: Agent = Agent()
+speech_service: ProviderSTT = OpenAISTT()
+
 
 class AgentStream:
     def __init__(
@@ -40,3 +43,4 @@ class AgentStream:
         yield from self.speech_service.text_to_speech(
             response_text,
         )
+
