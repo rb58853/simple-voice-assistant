@@ -26,8 +26,10 @@ def main(flow: str, mode: str):
     stream: Stream | None = None
     if flow == "simple":
         stream = session_stream
-    if flow == "session":
+    elif flow == "session":
         stream = session_stream
+    else:
+        raise Exception(f"Not implemented flow '{flow}'")
 
     app: FastAPI = create_app(stream=stream)
     if mode == "ui":
@@ -39,7 +41,7 @@ def main(flow: str, mode: str):
 
         uvicorn.run(app, host="0.0.0.0", port=7860)
 
-    raise Exception("Not implemented mode")
+    raise Exception(f"Not implemented mode '{mode}'")
 
 
 if __name__ == "__main__":
