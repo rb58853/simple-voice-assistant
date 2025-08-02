@@ -51,6 +51,7 @@ class OpenAIHandler(AsyncStreamHandler):
         self.connection = None
         self.output_queue = asyncio.Queue()
         self.agent = Agent(model="gpt-4o-mini")
+        self._stop = False
 
     def copy(self):
         return OpenAIHandler()
@@ -65,13 +66,6 @@ class OpenAIHandler(AsyncStreamHandler):
         ) as conn:
             await conn.session.update(
                 session={
-                    # "turn_detection": {"type": "server_vad"},
-                    # "input_audio_transcription": {
-                    #     "model": "whisper-1",
-                    #     "language": "es",
-                    # },
-                    # "tools": [tool],
-                    # "tool_choice": "process_message",
                     "modalities": ["audio", "text"],
                     "turn_detection": {
                         "type": "server_vad",
@@ -82,10 +76,10 @@ class OpenAIHandler(AsyncStreamHandler):
                     "input_audio_format": "pcm16",
                     "input_audio_transcription": {
                         "model": "gpt-4o-transcribe",
+                        # "model": "whisper-2",
                         "language": "es",
                     },
-                    "voice": "sage",
-                    "instructions": "No respondas nada nunca, solo deja el espacio vacio",
+                    "instructions": "No respondas nada nunca, solo responde exactamente el caracter vacio: '_'.",
                 }
             )
             self.connection = conn
@@ -93,30 +87,27 @@ class OpenAIHandler(AsyncStreamHandler):
                 # Handle interruptions
                 if event.type == "input_audio_buffer.speech_started":
                     self.clear_queue()
+                    self.stop()
+
                 if (
                     event.type
                     == "conversation.item.input_audio_transcription.completed"
                 ):
+                    self._stop = False
+                    transcript = event.transcript
                     await self.output_queue.put(
-                        AdditionalOutputs({"role": "user", "content": event.transcript})
+                        AdditionalOutputs({"role": "user", "content": transcript})
                     )
                     await self.__get_response(event.transcript)
 
-                # if event.type == "response.audio_transcript.done":
-                #     await self.output_queue.put(
-                #         AdditionalOutputs(
-                #             {"role": "assistant", "content": event.transcript}
-                #         )
-                #     )
-                # if event.type == "response.audio.delta":
-                #     await self.output_queue.put(
-                #         (
-                #             self.output_sample_rate,
-                #             np.frombuffer(
-                #                 base64.b64decode(event.delta), dtype=np.int16
-                #             ).reshape(1, -1),
-                #         ),
-                #     )
+    def stop(self):
+        self._stop = True
+
+    @property
+    def is_stopped(self) -> bool:
+        stopped: bool = self._stop
+        self._stop = False
+        return stopped
 
     async def receive(self, frame: tuple[int, np.ndarray]) -> None:
         if not self.connection:
@@ -139,18 +130,35 @@ class OpenAIHandler(AsyncStreamHandler):
         end_characters = ["?", "!", ".", "\n"]
         response: str = ""
         chunk_step = ""
-        async for chunk in self.agent.response(query):
-            if chunk is not None:
-                response += chunk
-                chunk_step += chunk
-                if len(chunk_step) >= 30 and chunk in end_characters:
-                    await self.__tts(chunk_step)
-                    chunk_step = chunk
 
+        print("\n\n")
+        for chunk in self.agent.response(query):
+            if self.is_stopped:
+                break
+
+            if chunk is not None:
+                if chunk.type == "audio":
+                    if chunk.text is not None:
+                        print(chunk.text, end="")
+                        response += chunk.text
+                        chunk_step += chunk.text
+                        if len(chunk_step) >= 30 and chunk.text in end_characters:
+                            await self.__tts(chunk_step)
+                            chunk_step = ""
+
+                if chunk.type == "text":
+                    await self.output_queue.put(
+                        AdditionalOutputs({"role": "assistant", "content": chunk.text})
+                    )
         await self.output_queue.put(
             AdditionalOutputs({"role": "assistant", "content": response})
         )
-        if chunk not in end_characters:
+        
+        if (
+            chunk is not None
+            and chunk.text is not None
+            and chunk.text not in end_characters
+        ):
             await self.__tts(chunk_step)
 
     async def __tts(self, text_to_speak: str):

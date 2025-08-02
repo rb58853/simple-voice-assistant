@@ -1,6 +1,7 @@
 from openai import AsyncClient, Client
 from typing import AsyncGenerator, Generator
 import os
+from .response import AgentResponse
 
 
 class Agent:
@@ -10,33 +11,35 @@ class Agent:
         self.model = model
         self.history: list[dict] = []
 
-    async def response(self, query: str) -> AsyncGenerator[str, None]:
+    def response(self, query: str) -> Generator[AgentResponse, None]:
         response: str = ""
-        async for step in self.__flow(query):
-            if step is not None:
-                response += step
+        for step in self.__flow(query):
+            if step.text is not None:
+                if step.type == "audio":
+                    response += step.text
                 yield step
         self.history.append({"role": "assistant", "content": response})
 
-    async def __flow(self, query: str) -> AsyncGenerator[str, None]:
-        async for step in self.__task(query):
-            yield step
+    def __flow(self, query: str) -> Generator[AgentResponse, None]:
+        yield AgentResponse("text", " • Procesando consulta")
+        for step in self.__task(query):
+            yield AgentResponse("audio", step)
 
-    async def __task(self, query) -> AsyncGenerator[str, None]:
+    def __task(self, query) -> Generator[str, None]:
         system_message = {
             "role": "system",
-            "content": "you are a good assistant that talk to users trough voice.",
+            "content": "You are a friendly assistant.",
         }
         user_message = {"role": "user", "content": query}
         self.history.append(user_message)
 
         messages = [system_message] + self.history
-        stream = await self.async_client.chat.completions.create(
+        stream = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             stream=True,
         )
-        async for chunk in stream:
+        for chunk in stream:
             # Extract content from the chunk
             content = chunk.choices[0].delta.content
             yield content
